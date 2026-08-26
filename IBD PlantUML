@@ -1,41 +1,26 @@
 @startuml
-title IBD: PipelineBlock - Внутренние потоки данных
+title IBD: PipelineBlock
 skinparam backgroundColor #FEFEFE
 skinparam defaultFontName Arial
-skinparam defaultFontSize 11
+skinparam defaultFontSize 10
 
-' Контейнер PipelineBlock
-package "PipelineBlock" {
-  
-  ' Части (instances блоков)
-  [qc_part\n:QCModule] as qc
-  [align_part\n:AlignmentModule] as align
-  [variant_part\n:VariantCaller] as vc
-  
-  ' Потоки данных между частями
-  qc --> align : BAM
-  align --> vc : BAM (sorted)
-  
-  ' Выходные данные
-  vc --> [output_data\n:VCF (filtered)]
-}
+left to right direction
 
 ' Внешние порты
-[inputPort\n:FASTQ] as input
-[outputPort\n:VCF] as output
+rectangle "ninputPort\nFASTQ" as in_port #C8E6C9
+rectangle "noutputPort\nVCF" as out_port #FFCDD2
 
-' Связи с портами
-input --> qc : входные данные
-output_data --> output : результат
+' Внутренние части
+package "PipelineBlock" {
+  rectangle "qc_part\n:QCModule" as qc #BBDEFB
+  rectangle "align_part\n:AlignmentModule" as align #BBDEFB
+  rectangle "variant_part\n:VariantCaller" as vc #BBDEFB
+}
 
-' Легенда
-legend right
-  **Потоки данных:**
-  FASTQ → QC → BAM → Alignment → BAM (sorted) → Variant Calling → VCF (filtered)
-  
-  **Порты:**
-  ■ inputPort: FASTQ (вход)
-  ■ outputPort: VCF (выход)
-endlegend
+' Связи с подписями
+in_port --> qc : FASTQ
+qc --> align : BAM
+align --> vc : BAM sorted
+vc --> out_port : VCF filtered
 
 @enduml
