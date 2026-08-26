@@ -1,0 +1,63 @@
+@startuml
+title BDD: GenomicAnalysisSystem
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+
+' Корневой блок
+[GenomicAnalysisSystem] as root
+
+' Модули пайплайна (composition)
+package "Pipeline Modules" {
+  [QCModule] as qc
+  [AlignmentModule] as align
+  [VariantCaller] as vc
+  [AnnotationModule] as ann
+}
+
+' Внешние инструменты и базы данных (aggregation)
+package "External Resources" {
+  [ReferenceDB] as refdb
+  [BWA_Tool] as bwa
+  [GATK_Tool] as gatk
+  [VEP_Tool] as vep
+}
+
+' Composition связи (заполненный ромб - сильная связь)
+root *-- qc : включает
+root *-- align : включает
+root *-- vc : включает
+root *-- ann : включает
+
+' Aggregation связи (пустой ромб - слабая связь)
+qc o-- refdb : использует
+align o-- bwa : использует
+vc o-- gatk : использует
+ann o-- vep : использует
+
+' Атрибуты модулей
+note right of qc
+  Вход: FASTQ
+  Выход: QC-отчёт
+  Инструмент: FastQC
+end note
+
+note right of align
+  Вход: FASTQ (QC)
+  Выход: BAM
+  Алгоритм: BWA-MEM
+end note
+
+note right of vc
+  Вход: BAM (sorted)
+  Выход: VCF (raw)
+  Инструмент: GATK HaplotypeCaller
+end note
+
+note right of ann
+  Вход: VCF (raw)
+  Выход: VCF (annotated)
+  База: VEP, ClinVar
+end note
+
+@enduml
