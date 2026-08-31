@@ -1,0 +1,206 @@
+openapi: 3.0.0
+info:
+  title: API для управления данными пациентов
+  description: Пример спецификации для курсового проекта по биоинформатике
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/v1
+    description: Основной сервер API
+
+paths:
+  /patients:
+    get:
+      summary: Получить список всех пациентов
+      description: Возвращает массив объектов Patient.
+      operationId: getPatients
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Patient'
+        '400':
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Создать нового пациента
+      description: Добавляет нового пациента в систему.
+      operationId: createPatient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientInput'
+      responses:
+        '201':
+          description: Пациент успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '400':
+          description: Некорректные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /patients/{patientId}:
+    get:
+      summary: Получить пациента по ID
+      description: Возвращает одного пациента.
+      operationId: getPatientById
+      parameters:
+        - name: patientId
+          in: path
+          required: true
+          description: Уникальный идентификатор пациента
+          schema:
+            type: string
+            example: '12345'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '404':
+          description: Пациент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Обновить данные пациента
+      description: Полностью заменяет данные пациента.
+      operationId: updatePatient
+      parameters:
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientInput'
+      responses:
+        '200':
+          description: Данные обновлены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '404':
+          description: Пациент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Удалить пациента
+      description: Удаляет пациента из системы.
+      operationId: deletePatient
+      parameters:
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Пациент успешно удален
+        '404':
+          description: Пациент не найден
+
+components:
+  schemas:
+    Patient:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор пациента
+          example: '12345'
+        fullName:
+          type: string
+          description: Полное имя пациента
+          example: 'Иванов Иван Иванович'
+        dateOfBirth:
+          type: string
+          format: date
+          description: Дата рождения
+          example: '1980-01-15'
+        gender:
+          type: string
+          description: Пол пациента
+          enum: [male, female, other]
+          example: 'male'
+        vitalSigns:
+          type: array
+          description: Список показателей жизнедеятельности (FAIR)
+          items:
+            $ref: '#/components/schemas/VitalSign'
+
+    PatientInput:
+      type: object
+      required:
+        - fullName
+      properties:
+        fullName:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female, other]
+
+    VitalSign:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Код показателя из онтологии (LOINC)
+          example: '8310-5'
+        codeSystem:
+          type: string
+          description: Система онтологии
+          enum: [LOINC, SNOMED CT]
+          example: 'LOINC'
+        displayName:
+          type: string
+          description: Название показателя
+          example: 'Body temperature'
+        value:
+          type: number
+          description: Числовое значение
+          example: 36.6
+        unit:
+          type: string
+          description: Единица измерения (UCUM)
+          example: 'Cel'
+        unitCodeSystem:
+          type: string
+          description: Система для единиц измерения
+          example: 'UCUM'
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: Код ошибки HTTP
+        message:
+          type: string
+          description: Текстовое описание ошибки
