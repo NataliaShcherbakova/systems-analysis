@@ -1,3 +1,14 @@
+"""
+=============================================================================
+ПРАКТИЧЕСКОЕ ЗАНЯТИЕ №16: Экономическое обоснование биоинформатической системы
+Дисциплина: "Системный анализ в биоинформатике"
+Направление: 03.04.01 "Прикладные математика и физика"
+Лектор: Щербакова Н.Л., к.т.н.
+
+Цель: Рассчитать TCO и ROI при переходе от ручного пайплайна к MLOps.
+=============================================================================
+"""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from dataclasses import dataclass
@@ -318,7 +329,7 @@ df_sensitivity = pd.DataFrame({
 })
 print(df_sensitivity.to_string(index=False))
 
-# Построение графика (опционально, если запущено в Jupyter)
+# Построение графика (опционально, если запущено в Jupyter или с GUI)
 try:
     fig, ax1 = plt.subplots(figsize=(8, 4))
 
@@ -346,6 +357,86 @@ try:
 
     plt.title('Зависимость ROI и срока окупаемости от объёма данных')
     plt.grid(True, linestyle='--', alpha=0.6)
+    plt.tight_layout()
     plt.show()
-except Exception:
-    print("(График не отображен: запустите код в среде с поддержкой matplotlib)")
+except Exception as e:
+    print(f"(График не отображен: {e}. Запустите код в среде с поддержкой matplotlib, например, Jupyter Notebook)")
+
+
+# ============================================================================
+# БЛОК 6. ПОИСК ТОЧКИ БЕЗУБЫТОЧНОСТИ (BREAK-EVEN POINT)
+# ============================================================================
+# Находим минимальный объём образцов, при котором внедрение MLOps
+# становится экономически выгодным (Gain > 0).
+
+def find_break_even_point(base_params: PipelineParams) -> dict:
+    """
+    Находит минимальное количество образцов в год,
+    при котором внедрение MLOps становится экономически выгодным (Gain > 0).
+
+    Использует метод последовательного приближения (линейный поиск).
+    """
+    # Начинаем с малого объёма и увеличиваем шаг за шагом
+    test_samples = 50
+    step = 50  # Шаг проверки
+    max_samples = 10000  # Предохранитель от бесконечного цикла
+
+    while test_samples <= max_samples:
+        # Создаём тестовые параметры с текущим объёмом образцов
+        # Все остальные затраты (dev_hours, подписки и т.д.) остаются фиксированными
+        test_params = PipelineParams(**{**base_params.__dict__, 'samples_per_year': test_samples})
+
+        # Считаем экономику на 3 года
+        results = calculate_economics(test_params, years=3)
+
+        # Если чистая экономия (Gain) стала положительной, мы нашли точку безубыточности
+        if results["Чистая экономия (Gain) за 3 года (руб.)"] > 0:
+            return {
+                "Минимальный объем (образцов/год)": test_samples,
+                "ROI при этом объеме (%)": results["ROI (%)"],
+                "Срок окупаемости (мес.)": results["Срок окупаемости (мес.)"],
+                "Gain (руб.)": results["Чистая экономия (Gain) за 3 года (руб.)"]
+            }
+
+        test_samples += step
+
+    return {"Статус": "Точка безубыточности не достигнута в заданном диапазоне"}
+
+
+# Запуск поиска точки безубыточности
+print("\n🎯 ПОИСК ТОЧКИ БЕЗУБЫТОЧНОСТИ:")
+print("-" * 60)
+break_even = find_break_even_point(params)
+for key, value in break_even.items():
+    if isinstance(value, float):
+        print(f"{key:<50} : {value:,.2f}".replace(',', ' '))
+    else:
+        print(f"{key:<50} : {value}")
+print("-" * 60)
+
+# ============================================================================
+# БЛОК 7. АНАЛИЗ ЧУВСТВИТЕЛЬНОСТИ К КЛЮЧЕВЫМ ПАРАМЕТРАМ
+# ============================================================================
+# Исследуем, как изменение dev_hours и bioinformatician_hourly_rate
+# влияет на ROI. Это помогает понять, какие параметры наиболее критичны.
+
+print("\n🔍 АНАЛИЗ ЧУВСТВИТЕЛЬНОСТИ К ПАРАМЕТРАМ:")
+print("=" * 60)
+
+# 7.1. Влияние dev_hours (затраты на разработку)
+print("\nВлияние dev_hours на ROI:")
+dev_hours_variants = [100, 250, 500, 1000]
+for dev_h in dev_hours_variants:
+    p_test = PipelineParams(**{**params.__dict__, 'dev_hours': dev_h})
+    res = calculate_economics(p_test, years=3)
+    print(f"  dev_hours = {dev_h:>4} ч → ROI = {res['ROI (%)']:>6.1f}%, "
+          f"Окупаемость = {res['Срок окупаемости (мес.)']:>4.1f} мес.")
+
+# 7.2. Влияние bioinformatician_hourly_rate (стоимость часа специалиста)
+print("\nВлияние bioinformatician_hourly_rate на ROI:")
+rate_variants = [1000, 1500, 2500, 4000]
+for rate in rate_variants:
+    p_test = PipelineParams(**{**params.__dict__, 'bioinformatician_hourly_rate': rate})
+    res = calculate_economics(p_test, years=3)
+    print(f"  rate = {rate:>4} руб./ч → ROI = {res['ROI (%)']:>6.1f}%, "
+          f"Окупаемость = {res['Срок окупаемости (мес.)']:>4.1f} мес.")
