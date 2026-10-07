@@ -1,0 +1,39 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Врач-генетик" as Doctor
+actor "Лаборант" as LabTech
+actor "Внешние БД\ngnomAD, ClinVar" as DB
+
+rectangle "Система анализа геномных данных" {
+  usecase "Назначить\nисследование" as UC1
+  usecase "Отправить образцы\nв лабораторию" as UC2
+  usecase "Подготовить\nбиблиотеки" as UC3
+  usecase "Запустить\nсеквенирование" as UC4
+  usecase "Провести QC" as UC5
+  usecase "Анализ данных" as UC6
+  usecase "Просмотреть\nрезультаты" as UC7
+  usecase "Экспортировать\nотчёт" as UC8
+}
+
+' === СПЛОШНЫЕ ЛИНИИ (Association) ===
+' Кто с чем взаимодействует
+Doctor --> UC1
+Doctor --> UC7
+LabTech --> UC2
+LabTech --> UC3
+LabTech --> UC4
+DB --> UC6
+
+' === ПУНКТИРНЫЕ ЛИНИИ (Include) ===
+' Обязательные подпроцессы
+UC1 ..> UC2 : <<include>>
+UC4 ..> UC5 : <<include>>
+UC6 ..> UC5 : <<include>>
+
+' === ПУНКТИРНЫЕ ЛИНИИ (Extend) ===
+' Опциональные расширения
+UC8 ..> UC7 : <<extend>>
+
+@enduml
