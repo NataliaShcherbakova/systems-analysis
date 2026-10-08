@@ -1,0 +1,52 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix ex: <http://example.org/ontology#> .
+
+# === ОНТОЛОГИЯ ===
+ex:myOntology a owl:Ontology ;
+    rdfs:label "Bioinformatics Ontology Example" .
+
+# === КЛАССЫ ===
+ex:Gene a owl:Class ;
+    rdfs:label "Gene"@en .
+
+ex:Disease a owl:Class ;
+    rdfs:label "Disease"@en .
+
+ex:Protein a owl:Class ;
+    rdfs:label "Protein"@en .
+
+ex:Phenotype a owl:Class ;
+    rdfs:label "Phenotype"@en .
+
+ex:BreastCancer rdfs:subClassOf ex:Disease ;
+    rdfs:label "Breast Cancer"@en ;
+    rdfs:comment "Malignant tumor originating in breast tissue"@en .
+
+# === ОТНОШЕНИЯ (Object Properties) ===
+ex:associated_with a owl:ObjectProperty ;
+    rdfs:domain ex:Gene ;
+    rdfs:range ex:Disease .
+
+ex:has_phenotype a owl:ObjectProperty ;
+    rdfs:domain ex:Disease ;
+    rdfs:range ex:Phenotype .
+
+ex:encoded_by a owl:ObjectProperty ;
+    rdfs:domain ex:Protein ;
+    rdfs:range ex:Gene .
+
+# === ИНСТАНСЫ (Individuals) ===
+ex:BRCA1_Gene a ex:Gene ;
+    rdfs:label "BRCA1 gene"@en .
+
+ex:Patient_123_Diagnosis a ex:BreastCancer ;
+    rdfs:label "Diagnosis of Patient 123"@en .
+
+ex:TumorGrowth a ex:Phenotype ;
+    rdfs:label "Tumor Growth"@en .
+
+# === СВЯЗИ ИНСТАНСОВ ===
+ex:BRCA1_Gene ex:associated_with ex:BreastCancer .
+ex:Patient_123_Diagnosis ex:has_phenotype ex:TumorGrowth .
