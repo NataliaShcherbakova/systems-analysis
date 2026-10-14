@@ -1,0 +1,47 @@
+@startuml
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam packageBorderColor #888888
+
+package "Presentation Layer (Интерфейсы)" {
+    component [WebUI (React)] as WebUI
+    component [CLI Tool (Python)] as CLI
+}
+
+package "API Layer (Бизнес-логика)" {
+    component [FastAPI App] as API
+    component [Pipeline Orchestrator] as Orch
+}
+
+package "Core Logic (Модули пайплайна)" {
+    component [QC Module] as QC
+    component [Align Module] as Align
+    component [Variant Caller] as VC
+    component [Annotation Module] as Ann
+}
+
+package "Data Access (Доступ к данным)" {
+    component [Database (PostgreSQL)] as DB
+    component [S3 Client (Boto3)] as S3
+}
+
+' Клиенты → API
+WebUI --> API : HTTP/REST
+CLI --> API : HTTP/REST
+
+' API → Оркестратор
+API --> Orch : вызов пайплайна
+
+' Оркестратор → Модули (реализует Pipeline из Logical View)
+Orch --> QC : execute()
+Orch --> Align : execute()
+Orch --> VC : execute()
+Orch --> Ann : execute()
+
+' Модули → Данные
+QC --> DB : сохранение логов
+Align --> DB : сохранение метаданных
+VC --> DB : сохранение результатов
+VC --> S3 : чтение BAM / запись VCF
+Ann --> S3 : чтение VCF / запись AnnotatedVCF
+@enduml
