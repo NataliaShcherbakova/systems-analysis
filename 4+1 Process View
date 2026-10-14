@@ -1,0 +1,35 @@
+@startuml
+skinparam shadowing false
+
+start
+
+:Pipeline Orchestrator:
+Получение задачи на анализ;
+
+:Загрузка FASTQ из S3 Storage;
+
+' Параллельное выполнение процессов
+fork
+  :QC Module:
+  Оценка качества чтений (FastQC);
+  note right: Параллельный процесс\n(не блокирует основной поток)
+fork again
+  :Align Module:
+  Выравнивание на референс (BWA);
+end fork
+
+:Variant Caller:
+Поиск генетических вариантов (GATK);
+
+:Annotation Module:
+Аннотация вариантов (VEP);
+
+' Параллельное завершение
+fork
+  :Сохранение итоговых\nметаданных в DB;
+fork again
+  :Отправка уведомления\nпользователю;
+end fork
+
+stop
+@enduml
