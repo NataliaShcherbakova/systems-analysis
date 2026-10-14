@@ -1,0 +1,21 @@
+@startuml
+left to right direction
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+Person(researcher, "Researcher", "Запускает анализ геномных данных")
+Person(clinician, "Clinician", "Просматривает результаты для диагностики")
+
+System_Boundary(c1, "Genomic Analysis Platform") {
+    System(platform, "Genomic Analysis Platform", "Обрабатывает FASTQ, выполняет QC, выравнивание и calling вариантов")
+}
+
+System_Ext(ncbi, "NCBI Database", "Внешняя база данных референсных геномов")
+System_Ext(lims, "LIMS System", "Лабораторная информационная система")
+
+Rel(researcher, platform, "Загружает данные и запускает пайплайны")
+Rel(clinician, platform, "Просматривает отчеты и варианты")
+Rel(platform, ncbi, "Скачивает референсные геномы")
+Rel(lims, platform, "Передает метаданные образцов")
+@enduml
