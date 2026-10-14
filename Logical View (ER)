@@ -1,0 +1,47 @@
+@startuml
+left to right direction
+skinparam linetype ortho
+
+entity "Patient" as P {
+  * patient_id : int
+  --
+  name : string
+  birth_date : date
+}
+
+entity "Sample" as S {
+  * sample_id : int
+  --
+  sample_type : string
+  collection_date : date
+}
+
+entity "SequencingRun" as SR {
+  * run_id : int
+  --
+  platform : string
+  fastq_path : string
+}
+
+entity "AnalysisResult" as AR {
+  * result_id : int
+  --
+  variant_count : int
+  vcf_path : string
+  analysis_date : date
+}
+
+entity "Variant" as V {
+  * variant_id : int
+  --
+  chromosome : string
+  position : int
+  ref_allele : string
+  alt_allele : string
+}
+
+P ||--o{ S : "has"
+S ||--o{ SR : "generates"
+SR ||--o| AR : "produces"
+AR ||--o{ V : "contains"
+@enduml
