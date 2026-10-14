@@ -1,0 +1,80 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+
+' Абстрактный базовый класс
+abstract class PipelineModule {
+    - name: String
+    + {abstract} execute(input: Data): Data
+    + {abstract} validate(data: Data): boolean
+}
+
+' Конкретные модули
+class QCModule extends PipelineModule {
+    - fastqcPath: String
+    - minQuality: int
+    + execute(input: FASTQ): QCReport
+    + validate(data: FASTQ): boolean
+}
+
+class AlignModule extends PipelineModule {
+    - referenceGenome: String
+    - algorithm: String
+    + execute(input: FASTQ): BAM
+    + validate(data: FASTQ): boolean
+}
+
+class VariantCaller extends PipelineModule {
+    - callerTool: String
+    - minDepth: int
+    + execute(input: BAM): VCF
+    + validate(data: BAM): boolean
+}
+
+class AnnotationModule extends PipelineModule {
+    - annotationDB: String
+    + execute(input: VCF): AnnotatedVCF
+    + validate(data: VCF): boolean
+}
+
+' Оркестратор пайплайна
+class Pipeline {
+    - modules: List<PipelineModule>
+    - config: PipelineConfig
+    + addModule(module: PipelineModule): void
+    + run(input: FASTQ): AnnotatedVCF
+    + validateAll(): boolean
+}
+
+' Классы данных
+class FASTQ {
+    - filePath: String
+    - readCount: long
+}
+
+class BAM {
+    - filePath: String
+    - alignedReads: long
+}
+
+class VCF {
+    - filePath: String
+    - variants: List<Variant>
+}
+
+class AnnotatedVCF extends VCF {
+    - annotations: Map<Variant, Annotation>
+}
+
+' Отношения композиции
+Pipeline *-- QCModule : содержит
+Pipeline *-- AlignModule : содержит
+Pipeline *-- VariantCaller : содержит
+Pipeline *-- AnnotationModule : содержит
+
+' Потоки данных
+QCModule --> FASTQ : обрабатывает
+AlignModule --> BAM : создает
+VariantCaller --> VCF : создает
+AnnotationModule --> AnnotatedVCF : создает
+@enduml
