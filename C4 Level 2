@@ -1,0 +1,27 @@
+@startuml
+left to right direction
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+Person(researcher, "Researcher", "Запускает анализ геномных данных")
+Person(clinician, "Clinician", "Просматривает результаты для диагностики")
+
+System_Boundary(c1, "Genomic Analysis Platform") {
+    Container(web_app, "Web Dashboard", "React, TypeScript", "Интерфейс для загрузки данных и управления задачами")
+    Container(api_app, "API Application", "Python, FastAPI", "Оркестрация пайплайнов и бизнес-логика")
+    Container(ml_service, "ML Inference Service", "Python, PyTorch", "Семантическая сегментация и анализ вариантов")
+    ContainerDb(database, "Metadata Database", "PostgreSQL", "Хранение метаданных пациентов, задач и статусов")
+    ContainerDb(storage, "File Storage", "MinIO / S3", "Хранение тяжелых файлов: FASTQ, BAM, VCF, DICOM")
+}
+
+System_Ext(ncbi, "NCBI Database", "Внешняя база референсных геномов")
+
+Rel(researcher, web_app, "Загружает данные и запускает пайплайны", "HTTPS")
+Rel(web_app, api_app, "Отправляет REST-запросы", "HTTPS/JSON")
+Rel(api_app, ml_service, "Передает задачу на анализ", "gRPC")
+Rel(api_app, database, "Читает и записывает метаданные", "JDBC")
+Rel(api_app, storage, "Загружает/скачивает файлы", "S3 API")
+Rel(ml_service, storage, "Читает входные данные, пишет результаты", "S3 API")
+Rel(api_app, ncbi, "Скачивает референсные геномы", "HTTPS")
+@enduml
