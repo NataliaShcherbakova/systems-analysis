@@ -1,0 +1,30 @@
+@startuml
+skinparam shadowing false
+
+' Клиентская машина
+node "Client Machine" as Client {
+    artifact [WebUI (React)] as WebUI
+    artifact [CLI Tool (Python)] as CLI
+}
+
+' Web/Application Server
+node "Web Server (Nginx + Gunicorn)" as WebServer {
+    artifact [FastAPI App] as API
+    artifact [Pipeline Orchestrator] as Orch
+}
+
+' Database Server
+node "Database Server" as DBServer {
+    database [PostgreSQL] as DB
+}
+
+' Storage
+node "Storage (MinIO/S3)" as Storage {
+    artifact [S3 Storage] as S3
+}
+
+' Сетевые соединения
+Client --> WebServer : HTTPS (443)
+WebServer --> DBServer : JDBC (5432)
+WebServer --> Storage : S3 API (9000)
+@enduml
