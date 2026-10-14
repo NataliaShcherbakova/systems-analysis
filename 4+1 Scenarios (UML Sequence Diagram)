@@ -1,0 +1,71 @@
+@startuml
+skinparam shadowing false
+
+actor "User" as User
+participant "WebUI\n(React)" as WebUI
+participant "FastAPI App" as API
+participant "Pipeline\nOrchestrator" as Orch
+participant "QC Module" as QC
+participant "Align Module" as Align
+participant "Variant Caller" as VC
+participant "Annotation Module" as Ann
+database "PostgreSQL" as DB
+participant "S3 Storage" as S3
+
+' Шаг 1: Загрузка файла
+User -> WebUI : Upload FASTQ
+activate WebUI
+WebUI -> API : POST /api/v1/upload
+activate API
+API -> API : Validate request
+API --> WebUI : 200 OK (task_id)
+deactivate API
+deactivate WebUI
+
+' Шаг 2: Запуск пайплайна
+User -> WebUI : Start pipeline
+WebUI -> API : POST /api/v1/run/{task_id}
+activate API
+API -> Orch : run_pipeline(task_id)
+activate Orch
+
+' Шаг 3: QC
+Orch -> QC : execute(FASTQ)
+activate QC
+QC -> DB : Save QC logs
+QC --> Orch : QCReport
+deactivate QC
+
+' Шаг 4: Alignment
+Orch -> Align : execute(FASTQ)
+activate Align
+Align -> S3 : Read reference genome
+Align -> DB : Save metadata
+Align --> Orch : BAM
+deactivate Align
+
+' Шаг 5: Variant Calling
+Orch -> VC : execute(BAM)
+activate VC
+VC -> S3 : Read BAM
+VC -> S3 : Write VCF
+VC -> DB : Save results
+VC --> Orch : VCF
+deactivate VC
+
+' Шаг 6: Annotation
+Orch -> Ann : execute(VCF)
+activate Ann
+Ann -> S3 : Read VCF
+Ann -> S3 : Write AnnotatedVCF
+Ann --> Orch : AnnotatedVCF
+deactivate Ann
+
+' Шаг 7: Завершение
+Orch -> DB : Save final status
+Orch --> API : Pipeline completed
+deactivate Orch
+API --> WebUI : Notification
+deactivate API
+WebUI --> User : Show results
+@enduml
