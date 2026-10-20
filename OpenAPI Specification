@@ -1,0 +1,95 @@
+# 1. ОБЯЗАТЕЛЬНО: Указываем версию стандарта OpenAPI
+openapi: 3.0.0
+
+# 2. Паспорт API: название, описание, версия вашего проекта
+info:
+  title: Medical Image Segmentation API
+  description: API для семантической сегментации МРТ/КТ и 3D-реконструкции
+  version: 1.0.0  # Версия вашего API, а не OpenAPI!
+
+# 3. Базовый URL (можно оставить пример, это не влияет на валидацию)
+servers:
+  - url: https://api.segmentation.med/v1
+    description: Production server
+
+# 4. Описание путей (эндпоинтов). Внимание на отступы!
+paths:
+  # Используем существительные во множественном числе. 
+  # {segmentation_id} - это переменная пути (path parameter)
+  /segmentations/{segmentation_id}:
+    get:  # HTTP-метод пишется строчными буквами!
+      summary: Получить результат сегментации
+      description: Возвращает маску сегментации и метаданные с FAIR-аннотациями
+      
+      # 5. ОПИСАНИЕ ВХОДНЫХ ДАННЫХ (Параметры)
+      parameters:
+        - name: segmentation_id
+          in: path          # Указываем, что параметр находится в URL
+          required: true    # Обязательный параметр
+          schema:
+            type: string
+            format: uuid    # ВАЖНО: валидатор потребует формат UUID
+          example: "550e8400-e29b-41d4-a716-446655440000" # Пример в кавычках!
+
+      # 6. ОПИСАНИЕ ВЫХОДНЫХ ДАННЫХ (Ответы)
+      responses:
+        '200': # Коды ответов ОБЯЗАТЕЛЬНО в кавычках, иначе YAML сочтет это числом
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                # 7. МАГИЯ $ref: Ссылка на модель внизу файла. 
+                # Не дублируйте код, используйте ссылки!
+                $ref: '#/components/schemas/Segmentation'
+        '404':
+          description: Сегментация с таким ID не найдена
+
+# 8. БИБЛИОТЕКА МОДЕЛЕЙ (Компоненты)
+components:
+  schemas:
+    Segmentation:
+      type: object
+      required:
+        - id
+        - organ_fma      # Делаем FAIR-поле обязательным
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        
+        # === НАЧАЛО FAIR-ПОЛЕЙ (Задание Шага 4) ===
+        
+        # FAIR-поле 1: Онтологический код (Interoperable)
+        organ_fma:
+          type: string
+          format: uri       # Подсказывает, что это ссылка/идентификатор
+          example: "FMA:7197" 
+          description: "Идентификатор органа по Foundational Model of Anatomy"
+          # pattern: "^FMA:[0-9]+$" # (Опционально) Регулярное выражение для строгой валидации
+
+        # FAIR-поле 2: Фиксированный набор значений из стандарта (Interoperable)
+        imaging_modality:
+          type: string
+          enum:             # enum гарантирует, что придет только одно из этих значений
+            - "DICOM:MR"
+            - "DICOM:CT"
+          example: "DICOM:MR"
+          description: "Тип модальности по стандарту DICOM"
+
+        # FAIR-поле 3: Версия для воспроизводимости (Reusable)
+        fma_version:
+          type: string
+          example: "FMA 4.14.0"
+          description: "Версия онтологии FMA, использованная для аннотации"
+
+        # FAIR-поле 4: Юридические ограничения (Reusable/Organizational)
+        data_license:
+          type: string
+          enum: 
+            - "152-FZ-restricted"
+            - "CC-BY-4.0"
+          example: "152-FZ-restricted"
+          description: "Ограничение доступа к медицинским данным"
+          
+        # === КОНЕЦ FAIR-ПОЛЕЙ ===
