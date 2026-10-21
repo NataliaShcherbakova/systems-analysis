@@ -1,0 +1,164 @@
+"""
+Практика: работа с NCBI E-utilities через Biopython.
+ESearch -> ESummary -> ELink.
+В терминале по необходимости
+pip install biopython
+"""
+
+from Bio import Entrez
+import json
+from pathlib import Path
+
+# ============================================================
+# НАСТРОЙКИ — ЗАПОЛНИТЕ ПЕРЕД ЗАПУСКОМ
+# ============================================================
+
+# ⚠️ ВСТАВЬТЕ свой email — это обязательное требование NCBI [reference:0]
+EMAIL = "your.email@example.com"
+
+# ⚠️ ВСТАВЬТЕ API-ключ, если он есть. Если нет — оставьте пустую строку "".
+# Без ключа Biopython сам будет держать лимит 3 запроса/сек [reference:1]
+API_KEY = ""  # например: "abc123def456..."
+
+# Поисковый запрос и число статей
+QUERY = "CRISPR gene therapy"
+RETMAX = 3
+
+# ============================================================
+# НАСТРОЙКА ENTREZ (делается один раз на весь скрипт)
+# ============================================================
+
+Entrez.email = EMAIL
+if API_KEY:
+    Entrez.api_key = API_KEY
+# Необязательно, но полезно: NCBI увидит имя вашего скрипта в логах
+Entrez.tool = "PythonPractice"
+
+
+# ============================================================
+# ФУНКЦИЯ: ESearch — поиск статей по запросу
+# ============================================================
+
+def esearch(query: str, retmax: int) -> list[str]:
+    """Возвращает список PMID по поисковому запросу."""
+    # Entrez.esearch возвращает "handle" — объект, похожий на файл
+    handle = Entrez.esearch(
+        db="pubmed",
+        term=query,
+        retmax=retmax,
+        sort="relevance",   # сортировка по релевантности
+        retmode="json",     # просим JSON — так проще и быстрее
+    )
+    # Entrez.read сам разбирает ответ в Python-словарь — вручную парсить не нужно [reference:2]
+    record = Entrez.read(handle)
+    handle.close()          # handle обязательно нужно закрывать
+
+    print(f"[ESearch] Всего найдено: {record['Count']}, "
+          f"получено PMID: {len(record['IdList'])}")
+    return record["IdList"]
+
+
+# ============================================================
+# ФУНКЦИЯ: ESummary — метаданные для списка PMID
+# ============================================================
+
+def esummary(pmids: list[str]) -> list:
+    """Возвращает список записей с метаданными для PMID."""
+    if not pmids:
+        return []
+
+    handle = Entrez.esummary(
+        db="pubmed",
+        id=",".join(pmids),   # несколько ID — через запятую [reference:3]
+    )
+    # ESummary в Biopython обычно возвращает XML, и Entrez.read превращает его в список словарей
+    records = Entrez.read(handle)
+    handle.close()
+    return records
+
+
+# ============================================================
+# ФУНКЦИЯ: ELink — связанные статьи для одного PMID
+# ============================================================
+
+def elink(pmid: str, linkname: str = "pubmed_pubmed") -> list[str]:
+    """
+    Возвращает список связанных PMID.
+    linkname="pubmed_pubmed"      — похожие статьи
+    linkname="pubmed_pubmed_refs" — библиография (на что ссылается статья)
+    """
+    handle = Entrez.elink(
+        dbfrom="pubmed",
+        db="pubmed",
+        id=pmid,
+        linkname=linkname,
+    )
+    records = Entrez.read(handle)  # структура: список -> LinkSetDb -> Link [reference:4]
+    handle.close()
+
+    try:
+        # В Biopython структура чуть глубже, но предсказуемая
+        return records[0]["LinkSetDb"][0]["Link"]
+    except (KeyError, IndexError):
+        return []
+
+
+# ============================================================
+# ОСНОВНАЯ ПРОГРАММА
+# ============================================================
+
+def main():
+    if EMAIL == "your.email@example.com":
+        print("⚠️  Впишите свой email в переменную EMAIL в начале скрипта.")
+        return
+
+    # ---------- ШАГ 1: поиск ----------
+    print(f"\n=== Шаг 1. ESearch: ищем «{QUERY}» ===")
+    pmids = esearch(QUERY, RETMAX)
+    if not pmids:
+        print("Ничего не найдено. Измените запрос.")
+        return
+    print(f"PMID: {pmids}")
+
+    # ---------- ШАГ 2: метаданные ----------
+    print(f"\n=== Шаг 2. ESummary: метаданные для {len(pmids)} статей ===")
+    summaries = esummary(pmids)
+    for article in summaries:
+        # Biopython даёт готовые поля с заголовками вроде "Title", "Source", "PubDate"
+        print(f"\nPMID: {article.get('Id', '—')}")
+        print(f"  Название: {article.get('Title', '—')}")
+        print(f"  Журнал:   {article.get('Source', '—')}")
+        print(f"  Дата:     {article.get('PubDate', '—')}")
+
+    # ---------- ШАГ 3: связанные статьи ----------
+    first_pmid = pmids[0]
+    print(f"\n=== Шаг 3. ELink: связанные статьи для PMID {first_pmid} ===")
+
+    related = elink(first_pmid, linkname="pubmed_pubmed")
+    print(f"Похожих статей: {len(related)}. Первые 5: {related[:5]}")
+
+    refs = elink(first_pmid, linkname="pubmed_pubmed_refs")
+    print(f"В библиографии (references): {len(refs)} статей")
+
+    # ---------- Сохранение ----------
+    # Entrez.read возвращает объекты, которые json не всегда понимает «из коробки»,
+    # поэтому приводим к обычным типам через str() для демонстрации.
+    out = {
+        "query": QUERY,
+        "pmids": pmids,
+        "summaries": [
+            {"pmid": str(a.get("Id")), "title": str(a.get("Title")),
+             "source": str(a.get("Source")), "pubdate": str(a.get("PubDate"))}
+            for a in summaries
+        ],
+        "related": related,
+        "references": refs,
+    }
+    path = Path("pubmed_result_biopython.json")
+    path.write_text(json.dumps(out, ensure_ascii=False, indent=2),
+                    encoding="utf-8")
+    print(f"\n✅ Результат сохранён в файл: {path.resolve()}")
+
+
+if __name__ == "__main__":
+    main()
