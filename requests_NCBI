@@ -1,0 +1,185 @@
+"""
+Практика: работа с NCBI E-utilities через Python.
+Скрипт: ESearch -> ESummary -> ELink.
+В терминале по необходимости:
+    pip install requests
+
+"""
+import requests
+import time
+import json
+from pathlib import Path
+
+# ============================================================
+# НАСТРОЙКИ — ЗАПОЛНИТЕ ПЕРЕД ЗАПУСКОМ
+# ============================================================
+
+# ⚠️ ВСТАВЬТЕ свой email (требование NCBI, чтобы связаться при проблемах)
+EMAIL = "your.email@example.com"
+
+# ⚠️ ВСТАВЬТЕ свой API-ключ. Если ключа нет — оставьте пустую строку "".
+# Без ключа: не более 3 запросов/сек. С ключом: до 10 запросов/сек.
+API_KEY = ""  # например: "abc123def456..."
+
+# Поисковый запрос и число статей
+QUERY = "CRISPR gene therapy"
+RETMAX = 3
+
+# ============================================================
+# СЛУЖЕБНЫЕ НАСТРОЙКИ
+# ============================================================
+
+BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+
+# Пауза между запросами (сек). С ключом можно 0.1, без ключа — 0.4.
+SLEEP = 0.1 if API_KEY else 0.4
+
+# Заголовок User-Agent — хороший тон при работе с API
+HEADERS = {"User-Agent": f"PythonPractice/1.0 ({EMAIL})"}
+
+
+# ============================================================
+# ФУНКЦИЯ: ESearch — поиск статей по запросу
+# ============================================================
+
+def esearch(query: str, retmax: int) -> list[str]:
+    """Возвращает список PMID по поисковому запросу."""
+    url = f"{BASE_URL}esearch.fcgi"
+    params = {
+        "db": "pubmed",
+        "term": query,
+        "retmax": retmax,
+        "retmode": "json",
+        "email": EMAIL,
+    }
+    if API_KEY:                       # ключ добавляем только если он задан
+        params["api_key"] = API_KEY
+
+    resp = requests.get(url, params=params, headers=HEADERS, timeout=30)
+    resp.raise_for_status()           # выбросит исключение при ошибке HTTP
+    data = resp.json()
+
+    result = data["esearchresult"]
+    print(f"[ESearch] Всего найдено: {result['count']}, "
+          f"получено PMID: {len(result['idlist'])}")
+    return result["idlist"]
+
+
+# ============================================================
+# ФУНКЦИЯ: ESummary — метаданные для списка PMID
+# ============================================================
+
+def esummary(pmids: list[str]) -> dict:
+    """Возвращает метаданные (название, журнал, дата) для списка PMID."""
+    if not pmids:
+        return {}
+
+    url = f"{BASE_URL}esummary.fcgi"
+    params = {
+        "db": "pubmed",
+        "id": ",".join(pmids),        # несколько ID — через запятую
+        "retmode": "json",
+        "email": EMAIL,
+    }
+    if API_KEY:
+        params["api_key"] = API_KEY
+
+    resp = requests.get(url, params=params, headers=HEADERS, timeout=30)
+    resp.raise_for_status()
+    data = resp.json()
+
+    # data["result"] содержит словарь: uid -> метаданные
+    # плюс служебный ключ "uids" со списком ID
+    return data["result"]
+
+
+# ============================================================
+# ФУНКЦИЯ: ELink — связанные статьи для одного PMID
+# ============================================================
+
+def elink(pmid: str, linkname: str = "pubmed_pubmed") -> list[str]:
+    """
+    Возвращает список связанных PMID.
+    linkname="pubmed_pubmed"      — похожие статьи (по умолчанию)
+    linkname="pubmed_pubmed_refs" — библиография (на что ссылается статья)
+    """
+    url = f"{BASE_URL}elink.fcgi"
+    params = {
+        "dbfrom": "pubmed",
+        "db": "pubmed",
+        "id": pmid,
+        "linkname": linkname,
+        "retmode": "json",
+        "email": EMAIL,
+    }
+    if API_KEY:
+        params["api_key"] = API_KEY
+
+    resp = requests.get(url, params=params, headers=HEADERS, timeout=30)
+    resp.raise_for_status()
+    data = resp.json()
+
+    # Структура: linksets -> [0] -> linksetdbs -> [0] -> links
+    try:
+        return data["linksets"][0]["linksetdbs"][0]["links"]
+    except (KeyError, IndexError):
+        return []                     # связей нет
+
+
+# ============================================================
+# ОСНОВНАЯ ПРОГРАММА
+# ============================================================
+
+def main():
+    # --- Проверка, что настройки заполнены ---
+    if EMAIL == "your.email@example.com":
+        print("⚠️  Впишите свой email в переменную EMAIL в начале скрипта.")
+        return
+
+    # ---------- ШАГ 1: поиск ----------
+    print(f"\n=== Шаг 1. ESearch: ищем «{QUERY}» ===")
+    pmids = esearch(QUERY, RETMAX)
+    if not pmids:
+        print("Ничего не найдено. Измените запрос.")
+        return
+    print(f"PMID: {pmids}")
+    time.sleep(SLEEP)
+
+    # ---------- ШАГ 2: метаданные ----------
+    print(f"\n=== Шаг 2. ESummary: метаданные для {len(pmids)} статей ===")
+    summaries = esummary(pmids)
+    for pmid in pmids:
+        info = summaries.get(pmid, {})
+        print(f"\nPMID: {pmid}")
+        print(f"  Название: {info.get('title', '—')}")
+        print(f"  Журнал:   {info.get('source', '—')}")
+        print(f"  Дата:     {info.get('pubdate', '—')}")
+    time.sleep(SLEEP)
+
+    # ---------- ШАГ 3: связанные статьи ----------
+    first_pmid = pmids[0]
+    print(f"\n=== Шаг 3. ELink: связанные статьи для PMID {first_pmid} ===")
+
+    related = elink(first_pmid, linkname="pubmed_pubmed")
+    print(f"Похожих статей: {len(related)}. Первые 5: {related[:5]}")
+    time.sleep(SLEEP)
+
+    refs = elink(first_pmid, linkname="pubmed_pubmed_refs")
+    print(f"В библиографии (references): {len(refs)} статей")
+
+    # ---------- Сохранение результата ----------
+    out = {
+        "query": QUERY,
+        "pmids": pmids,
+        "summaries": summaries,
+        "related": related,
+        "references": refs,
+    }
+    path = Path("pubmed_result.json")
+    path.write_text(json.dumps(out, ensure_ascii=False, indent=2),
+                    encoding="utf-8")
+    print(f"\n✅ Результат сохранён в файл: {path.resolve()}")
+
+
+if __name__ == "__main__":
+    main()
