@@ -30,7 +30,7 @@ short_names = ['Ген A', 'Ген B', 'Ген C', 'Ген D']
 
 # 3. ПАРАМЕТРЫ ТЕСТА
 N_PERMUTATIONS = 500   # число пермутаций
-FDR_THRESHOLD = 0.1    # порог значимости
+FDR_THRESHOLD = 0.05    # порог значимости
 
 
 # 4. ФУНКЦИЯ PERMUTATION TEST
